@@ -75,3 +75,23 @@ Route::prefix('api/v1')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// Secure temporary route for live server migrations and seeding (Disable/remove after initial setup)
+Route::get('/system-db-migrate-seed', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate:fresh', [
+            '--seed' => true,
+            '--force' => true,
+        ]);
+        return '<div style="font-family: sans-serif; padding: 2rem; max-width: 600px; margin: auto; background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; color: #065f46;">' .
+               '<h2>✅ Shariah Database Initialized Successfully!</h2>' .
+               '<p>All daily prayers, authentic Hadiths, E-numbers, eating etiquettes, daily sunnahs, and finance concepts have been seeded in your live database.</p>' .
+               '<pre style="background: #ffffff; padding: 1rem; border-radius: 6px; border: 1px solid #d1fae5; font-size: 11px; overflow-x: auto;">' . 
+               \Illuminate\Support\Facades\Artisan::output() . '</pre></div>';
+    } catch (\Exception $e) {
+        return '<div style="font-family: sans-serif; padding: 2rem; max-width: 600px; margin: auto; background: #fef2f2; border: 1px solid #ef4444; border-radius: 12px; color: #991b1b;">' .
+               '<h2>❌ Database Migration Failed!</h2>' .
+               '<p>Error: ' . htmlspecialchars($e->getMessage()) . '</p></div>';
+    }
+});
+
