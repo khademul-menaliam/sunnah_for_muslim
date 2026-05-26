@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Hadith;
-use App\Models\PrayerTimesCache;
 use App\Models\PrayerLog;
+use App\Models\PrayerTimesCache;
 use App\Models\Sunnah;
 use App\Models\SunnahLog;
 use App\Services\IslamicCalculations;
@@ -26,7 +26,7 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         $date = date('Y-m-d');
-        
+
         // 1. Get today's prayer times
         $latitude = $user->latitude ?? 23.8103;
         $longitude = $user->longitude ?? 90.4125;
@@ -65,7 +65,7 @@ class DashboardController extends Controller
                         'date' => $date,
                     ],
                     [
-                        'location' => ($user->city ?? 'Dhaka') . ', ' . ($user->country ?? 'Bangladesh'),
+                        'location' => ($user->city ?? 'Dhaka').', '.($user->country ?? 'Bangladesh'),
                         'fajr_time' => $raw['fajr'],
                         'dhuhr_time' => $raw['dhuhr'],
                         'asr_time' => $raw['asr'],
@@ -81,7 +81,7 @@ class DashboardController extends Controller
         $currentTime = date('H:i');
         $nextPrayerName = 'Fajr';
         $nextPrayerTime = $timings['Fajr'];
-        
+
         foreach ($timings as $name => $time) {
             if ($currentTime < $time) {
                 $nextPrayerName = $name;
@@ -97,6 +97,12 @@ class DashboardController extends Controller
                 ->where('date', $date)
                 ->pluck('status', 'prayer_id')
                 ->toArray();
+        } else {
+            // Guest session tracking support
+            $sessionLogs = session()->get("prayer_logs.{$date}", []);
+            foreach ($sessionLogs as $pId => $log) {
+                $prayerLogs[(int) $pId] = $log['status'] ?? 'unlogged';
+            }
         }
 
         // 4. Get today's Sunnah progress
@@ -110,11 +116,13 @@ class DashboardController extends Controller
                 ->where('completed', true)
                 ->count();
             $sunnahProgress = round(($completedSunnahs / $totalSunnahs) * 100);
+        } elseif ($totalSunnahs > 0) {
+            // Guest session tracking support
+            $completedSunnahs = count(session()->get("sunnah_logs.{$date}", []));
+            $sunnahProgress = round(($completedSunnahs / $totalSunnahs) * 100);
         }
 
         // 5. Random Hadith of the Day (seeded hadiths)
-        // Seeded hadiths count is 55. Let's pick a random one.
-        // To make it sticky per calendar day, let's use the day of year as seed.
         $dayOfYear = (int) date('z');
         $hadithCount = Hadith::count();
         $hadithOfDay = null;

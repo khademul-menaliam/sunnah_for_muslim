@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PrayerLog;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -12,7 +13,7 @@ class PrayerLogController extends Controller
     /**
      * Store or update a prayer log.
      */
-    public function store(Request $request): JsonResponse|\Illuminate\Http\RedirectResponse
+    public function store(Request $request): JsonResponse|RedirectResponse
     {
         $request->validate([
             'prayer_id' => 'required|exists:prayers,id',
@@ -22,11 +23,32 @@ class PrayerLogController extends Controller
         ]);
 
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
+            // Guest session tracking support
+            $date = $request->input('date');
+            $prayerId = (int) $request->input('prayer_id');
+            $status = $request->input('status');
+            $notes = $request->input('notes');
+
+            $sessionKey = "prayer_logs.{$date}.{$prayerId}";
+            session()->put($sessionKey, [
+                'prayer_id' => $prayerId,
+                'status' => $status,
+                'notes' => $notes,
+            ]);
+
             if ($request->wantsJson() || $request->is('api/*')) {
-                return response()->json(['error' => 'Unauthenticated'], 401);
+                return response()->json([
+                    'status' => 'success',
+                    'log' => [
+                        'prayer_id' => $prayerId,
+                        'status' => $status,
+                        'notes' => $notes,
+                    ],
+                ]);
             }
-            return redirect()->route('login')->with('error', 'Please login to track your prayers.');
+
+            return redirect()->back()->with('success', 'Prayer tracked in guest session successfully.');
         }
 
         $log = PrayerLog::updateOrCreate(

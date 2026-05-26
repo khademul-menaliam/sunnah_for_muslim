@@ -7,7 +7,7 @@
         
         <div class="relative z-10">
             <span class="text-xs font-black uppercase tracking-widest bg-emerald-500/30 px-3 py-1 rounded-full border border-emerald-400/30">Assalamu Alaikum</span>
-            <h2 class="text-2xl font-black mt-2">Welcome, {{ Auth::user()->name }}!</h2>
+            <h2 class="text-2xl font-black mt-2">Welcome, {{ Auth::check() ? Auth::user()->name : 'Deen Tracker' }}!</h2>
             <p class="text-sm text-emerald-100 font-semibold mt-1">Keep track of your Islamic daily habits and maintain your spiritual progress.</p>
         </div>
 

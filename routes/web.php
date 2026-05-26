@@ -19,44 +19,59 @@ use App\Http\Controllers\SunnahLogController;
 use App\Http\Controllers\ZakatController;
 use Illuminate\Support\Facades\Route;
 
+// Redirect home directly to the public interactive cockpit dashboard
 Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    // Central Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+// ==========================================
+// 🌟 PUBLIC PORTAL ROUTES (NO LOGIN REQUIRED)
+// ==========================================
 
-    // MODULE 1 - DAILY PRAYERS
-    Route::get('/prayers', [PrayerController::class, 'index'])->name('prayers.index');
-    Route::get('/prayers/{prayer}', [PrayerController::class, 'show'])->name('prayers.show');
-    Route::get('/prayer-tracker', [PrayerController::class, 'tracker'])->name('prayers.tracker');
-    Route::post('/prayer-logs', [PrayerLogController::class, 'store'])->name('prayer-logs.store');
-    Route::get('/prayer-times', [PrayerTimeController::class, 'index'])->name('prayer-times.index');
-    Route::get('/qibla', [QiblaController::class, 'index'])->name('qibla.index');
+// Central Cockpit Dashboard
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // MODULE 2 - EATING HABITS (HALAL & TAYYIB)
-    Route::get('/eating', [EatingController::class, 'index'])->name('eating.index');
-    Route::get('/eating/foods', [FoodController::class, 'index'])->name('eating.foods');
-    Route::get('/eating/etiquettes', [EtiquetteController::class, 'index'])->name('eating.etiquettes');
-    Route::get('/eating/duas', [DuaController::class, 'eating'])->name('eating.duas');
+// MODULE 1 - DAILY PRAYERS
+Route::get('/prayers', [PrayerController::class, 'index'])->name('prayers.index');
+Route::get('/prayers/{prayer}', [PrayerController::class, 'show'])->name('prayers.show');
+Route::get('/prayer-tracker', [PrayerController::class, 'tracker'])->name('prayers.tracker');
+Route::post('/prayer-logs', [PrayerLogController::class, 'store'])->name('prayer-logs.store');
+Route::get('/prayer-times', [PrayerTimeController::class, 'index'])->name('prayer-times.index');
+Route::get('/qibla', [QiblaController::class, 'index'])->name('qibla.index');
 
-    // MODULE 3 - SUNNAH PRACTICES
-    Route::get('/sunnahs', [SunnahController::class, 'index'])->name('sunnahs.index');
-    Route::post('/sunnah-logs', [SunnahLogController::class, 'store'])->name('sunnah-logs.store');
-    Route::get('/adhkar', [AdhkarController::class, 'index'])->name('adhkar.index');
+// MODULE 2 - EATING HABITS (HALAL & TAYYIB)
+Route::get('/eating', [EatingController::class, 'index'])->name('eating.index');
+Route::get('/eating/foods', [FoodController::class, 'index'])->name('eating.foods');
+Route::get('/eating/etiquettes', [EtiquetteController::class, 'index'])->name('eating.etiquettes');
+Route::get('/eating/duas', [DuaController::class, 'eating'])->name('eating.duas');
 
-    // MODULE 4 - JOB & INCOME
-    Route::get('/income', [IncomeController::class, 'index'])->name('income.index');
-    Route::get('/income/finance-concepts', [FinanceController::class, 'index'])->name('income.finance');
-    Route::get('/income/zakat', [ZakatController::class, 'index'])->name('income.zakat');
-    Route::post('/income/zakat/calculate', [ZakatController::class, 'calculate'])->name('income.zakat.calculate');
+// MODULE 3 - SUNNAH PRACTICES
+Route::get('/sunnahs', [SunnahController::class, 'index'])->name('sunnahs.index');
+Route::post('/sunnah-logs', [SunnahLogController::class, 'store'])->name('sunnah-logs.store');
+Route::get('/adhkar', [AdhkarController::class, 'index'])->name('adhkar.index');
 
-    // HADITHS
-    Route::get('/hadiths', [HadithController::class, 'index'])->name('hadiths.index');
-    Route::get('/hadiths/{hadith}', [HadithController::class, 'show'])->name('hadiths.show');
+// MODULE 4 - JOB & INCOME
+Route::get('/income', [IncomeController::class, 'index'])->name('income.index');
+Route::get('/income/finance-concepts', [FinanceController::class, 'index'])->name('income.finance');
+Route::get('/income/zakat', [ZakatController::class, 'index'])->name('income.zakat');
+Route::post('/income/zakat/calculate', [ZakatController::class, 'calculate'])->name('income.zakat.calculate');
 
-    // Profile Settings
+// VERIFIED SCRIPTURES
+Route::get('/hadiths', [HadithController::class, 'index'])->name('hadiths.index');
+Route::get('/hadiths/{hadith}', [HadithController::class, 'show'])->name('hadiths.show');
+
+// ==========================================
+// 🔒 ADMIN BACKEND ROUTES (AUTH REQUIRED)
+// ==========================================
+Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
+    // Admin Hadith database management
+    Route::get('/hadiths/create', [HadithController::class, 'create'])->name('admin.hadiths.create');
+    Route::post('/hadiths', [HadithController::class, 'store'])->name('admin.hadiths.store');
+    Route::get('/hadiths/{hadith}/edit', [HadithController::class, 'edit'])->name('admin.hadiths.edit');
+    Route::put('/hadiths/{hadith}', [HadithController::class, 'update'])->name('admin.hadiths.update');
+    Route::delete('/hadiths/{hadith}', [HadithController::class, 'destroy'])->name('admin.hadiths.destroy');
+
+    // Admin Profile administration
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -75,23 +90,3 @@ Route::prefix('api/v1')->group(function () {
 });
 
 require __DIR__.'/auth.php';
-
-// Secure temporary route for live server migrations and seeding (Disable/remove after initial setup)
-Route::get('/system-db-migrate-seed', function () {
-    try {
-        \Illuminate\Support\Facades\Artisan::call('migrate:fresh', [
-            '--seed' => true,
-            '--force' => true,
-        ]);
-        return '<div style="font-family: sans-serif; padding: 2rem; max-width: 600px; margin: auto; background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; color: #065f46;">' .
-               '<h2>✅ Shariah Database Initialized Successfully!</h2>' .
-               '<p>All daily prayers, authentic Hadiths, E-numbers, eating etiquettes, daily sunnahs, and finance concepts have been seeded in your live database.</p>' .
-               '<pre style="background: #ffffff; padding: 1rem; border-radius: 6px; border: 1px solid #d1fae5; font-size: 11px; overflow-x: auto;">' . 
-               \Illuminate\Support\Facades\Artisan::output() . '</pre></div>';
-    } catch (\Exception $e) {
-        return '<div style="font-family: sans-serif; padding: 2rem; max-width: 600px; margin: auto; background: #fef2f2; border: 1px solid #ef4444; border-radius: 12px; color: #991b1b;">' .
-               '<h2>❌ Database Migration Failed!</h2>' .
-               '<p>Error: ' . htmlspecialchars($e->getMessage()) . '</p></div>';
-    }
-});
-

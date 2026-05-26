@@ -36,7 +36,7 @@ class PrayerController extends Controller
      */
     public function show($id, Request $request): View|JsonResponse
     {
-        $prayer = Prayer::with(['hadiths' => function($q) {
+        $prayer = Prayer::with(['hadiths' => function ($q) {
             $q->where('verified', true);
         }])->findOrFail($id);
 
@@ -57,22 +57,26 @@ class PrayerController extends Controller
     {
         $user = Auth::user();
         $date = $request->input('date', date('Y-m-d'));
-        
+
         $prayers = Prayer::orderBy('order_number', 'asc')->get();
 
         // Get logs for selected date
-        $logs = [];
+        $logs = collect();
+        $streak = 0;
+
         if ($user) {
             $logs = PrayerLog::where('user_id', $user->id)
                 ->where('date', $date)
                 ->get()
                 ->keyBy('prayer_id');
-        }
-
-        // Calculate Streak (consecutive days where all 5 prayers are marked prayed/congregation)
-        $streak = 0;
-        if ($user) {
             $streak = $this->calculateStreak($user->id);
+        } else {
+            // Guest session tracking support
+            $sessionLogs = session()->get("prayer_logs.{$date}", []);
+            $logs = collect($sessionLogs)->map(function ($item) {
+                return (object) $item;
+            });
+            $streak = $this->calculateGuestStreak();
         }
 
         return view('prayers.tracker', compact('prayers', 'logs', 'date', 'streak'));
@@ -84,12 +88,11 @@ class PrayerController extends Controller
     private function calculateStreak(int $userId): int
     {
         $streak = 0;
-        $checkDate = date('Y-m-d');
-        
+
         // Loop backwards starting today
         for ($i = 0; $i < 365; $i++) {
             $dateStr = date('Y-m-d', strtotime("-$i days"));
-            
+
             // Check if user has logged all 5 prayers on this day
             $dailyLogs = PrayerLog::where('user_id', $userId)
                 ->where('date', $dateStr)
@@ -100,6 +103,36 @@ class PrayerController extends Controller
                 $streak++;
             } else {
                 // If it's today and they haven't prayed all 5 yet, don't break the streak immediately
+                if ($i === 0) {
+                    continue;
+                }
+                break;
+            }
+        }
+
+        return $streak;
+    }
+
+    /**
+     * Helper to calculate guest streak from session.
+     */
+    private function calculateGuestStreak(): int
+    {
+        $streak = 0;
+        for ($i = 0; $i < 30; $i++) {
+            $dateStr = date('Y-m-d', strtotime("-$i days"));
+            $sessionLogs = session()->get("prayer_logs.{$dateStr}", []);
+
+            $completedCount = 0;
+            foreach ($sessionLogs as $log) {
+                if (in_array($log['status'] ?? '', ['prayed', 'congregation'])) {
+                    $completedCount++;
+                }
+            }
+
+            if ($completedCount === 5) {
+                $streak++;
+            } else {
                 if ($i === 0) {
                     continue;
                 }

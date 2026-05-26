@@ -42,27 +42,35 @@ class SunnahController extends Controller
                 ->where('completed', true)
                 ->pluck('sunnah_id')
                 ->toArray();
+        } else {
+            // Guest session tracking support
+            $logs = session()->get("sunnah_logs.{$date}", []);
         }
 
         // Calculate Weekly Completion Chart data (last 7 days percentages)
         $weeklyProgress = [];
-        if ($user) {
-            $totalSunnahsCount = Sunnah::count();
-            for ($i = 6; $i >= 0; $i--) {
-                $checkDate = date('Y-m-d', strtotime("-$i days"));
+        $totalSunnahsCount = Sunnah::count();
+
+        for ($i = 6; $i >= 0; $i--) {
+            $checkDate = date('Y-m-d', strtotime("-$i days"));
+            $completedCount = 0;
+
+            if ($user) {
                 $completedCount = SunnahLog::where('user_id', $user->id)
                     ->where('date', $checkDate)
                     ->where('completed', true)
                     ->count();
-
-                $percent = $totalSunnahsCount > 0 ? round(($completedCount / $totalSunnahsCount) * 100) : 0;
-                $weeklyProgress[] = [
-                    'day' => date('D', strtotime($checkDate)),
-                    'date' => $checkDate,
-                    'percentage' => $percent,
-                    'completed' => $completedCount,
-                ];
+            } else {
+                $completedCount = count(session()->get("sunnah_logs.{$checkDate}", []));
             }
+
+            $percent = $totalSunnahsCount > 0 ? round(($completedCount / $totalSunnahsCount) * 100) : 0;
+            $weeklyProgress[] = [
+                'day' => date('D', strtotime($checkDate)),
+                'date' => $checkDate,
+                'percentage' => $percent,
+                'completed' => $completedCount,
+            ];
         }
 
         if ($request->wantsJson() || $request->is('api/*')) {
